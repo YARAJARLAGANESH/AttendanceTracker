@@ -8,6 +8,36 @@ export async function listAttendanceForStudent(studentId: string) {
   return (data ?? []) as AttendanceRecord[]
 }
 
+export async function listAttendanceForDateAndGroup(groupId: string, date: string) {
+  const { data: students, error: studentsError } = await supabase.from('students').select('id').eq('group_id', groupId)
+  if (studentsError) throw studentsError
+
+  const studentIds = (students ?? []).map((student) => student.id)
+
+  if (studentIds.length === 0) {
+    return [] as AttendanceRecord[]
+  }
+
+  const { data, error } = await supabase.from('attendance').select('*').eq('date', date).in('student_id', studentIds)
+  if (error) throw error
+  return (data ?? []) as AttendanceRecord[]
+}
+
+export async function listAttendanceForGroup(groupId: string) {
+  const { data: students, error: studentsError } = await supabase.from('students').select('id').eq('group_id', groupId)
+  if (studentsError) throw studentsError
+
+  const studentIds = (students ?? []).map((student) => student.id)
+
+  if (studentIds.length === 0) {
+    return [] as AttendanceRecord[]
+  }
+
+  const { data, error } = await supabase.from('attendance').select('*').in('student_id', studentIds)
+  if (error) throw error
+  return (data ?? []) as AttendanceRecord[]
+}
+
 export async function upsertAttendanceRecord(input: {
   student_id: string
   date: string

@@ -126,3 +126,24 @@ export function validateTimetableEntry(input: Partial<TimetableEntry>): { valid:
 
   return { valid: errors.length === 0, errors }
 }
+
+export function resolveScheduledClassesForDate(
+  date: string,
+  timetableEntries: TimetableEntry[],
+  workingDays: readonly string[] = DEFAULT_WORKING_DAYS,
+  academicDays: Array<Pick<AcademicDay, 'date' | 'day_type'>> = [],
+): TimetableEntry[] {
+  if (!isWorkingAcademicDate(date, workingDays, academicDays)) {
+    return []
+  }
+
+  const dayOfWeek = new Date(`${date}T12:00:00`).getDay()
+
+  return timetableEntries.filter((entry) => {
+    if (entry.day_of_week !== dayOfWeek) {
+      return false
+    }
+
+    return matchesTimetableDateRange(date, entry.active_from ?? null, entry.active_until ?? null)
+  })
+}
