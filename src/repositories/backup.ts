@@ -45,6 +45,7 @@ export type BackupValidationResult = {
 
 const VALID_ATTENDANCE_STATUSES = new Set(['PRESENT', 'ABSENT', 'NOT_CONDUCTED'])
 const VALID_DAY_TYPES = new Set(['NORMAL', 'HOLIDAY', 'SPECIAL_CLASS', 'EXAM', 'COLLEGE_EVENT'])
+const SECRET_FIELD_PATTERN = /(password|passwd|secret|token|api[_-]?key|refresh[_-]?token|access[_-]?token|session[_-]?secret|service[-_]?role|private[_-]?key)/i
 
 const isValidUuid = (value: string | null | undefined) => {
   if (!value) return false
@@ -87,6 +88,11 @@ export function validateBackupPayload(payload: unknown): BackupValidationResult 
   }
 
   const candidate = payload as Record<string, unknown>
+  const secretLikeKeys = Object.keys(candidate).filter((key) => SECRET_FIELD_PATTERN.test(key))
+  if (secretLikeKeys.length > 0) {
+    errors.push(`Backup payload contains sensitive field(s): ${secretLikeKeys.join(', ')}. Remove secrets before import.`)
+  }
+
   if (candidate.backupVersion !== BACKUP_VERSION) {
     errors.push(`Unsupported backupVersion: ${String(candidate.backupVersion ?? 'missing')}. Supported version is ${BACKUP_VERSION}.`)
   }

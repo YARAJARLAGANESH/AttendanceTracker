@@ -2,6 +2,70 @@ import { describe, expect, it } from 'vitest'
 
 import { buildBackupFileName, validateBackupPayload } from './backup'
 
+const initialSchema = `
+create policy "members can view students in their groups" on public.students
+for select using (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid()
+  )
+);
+
+create policy "owners and admins can manage students in their groups" on public.students
+for all using (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+) with check (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+);
+`
+
+const studentSchema = `
+create policy "group admins can manage students" on public.students
+for all using (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+) with check (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+);
+
+create policy "group admins can manage subjects" on public.subjects
+for all using (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.subjects.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+) with check (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.subjects.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+);
+
+create policy "group admins can manage timetable" on public.timetable
+for all using (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.timetable.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+) with check (
+  exists (
+    select 1 from public.group_members gm
+    where gm.group_id = public.timetable.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
+  )
+);
+`
+
 describe('backup validation', () => {
   it('accepts a valid backup payload', () => {
     const payload = {
@@ -127,5 +191,27 @@ describe('backup validation', () => {
     expect(buildBackupFileName('AIML-3/1')).toContain('attendance-tracker')
     expect(buildBackupFileName('AIML-3/1')).toContain('aiml-3-1')
     expect(buildBackupFileName('AIML-3/1')).toMatch(/\.json$/)
+  })
+
+  it('rejects backup payloads that contain secret-like keys', () => {
+    const result = validateBackupPayload({
+      backupVersion: '1.0',
+      application: 'Attendance Tracker',
+      exportedAt: '2026-09-21T12:00:00.000Z',
+      group: { id: '11111111-1111-4111-8111-111111111111', name: 'AIML-3/1' },
+      data: { students: [], subjects: [], timetable: [], academicDays: [], attendance: [] },
+      access_token: 'secret-value',
+    })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.some((error) => /secret|token|password/i.test(error))).toBe(true)
+  })
+
+  it('enforces admin-only write policies in the migration schema', () => {
+    expect(initialSchema).not.toContain('members can manage students in their groups')
+    expect(studentSchema).toContain('group admins can manage students')
+    expect(studentSchema).toContain('group admins can manage subjects')
+    expect(studentSchema).toContain('group admins can manage timetable')
+    expect(studentSchema).toContain("gm.role in ('owner', 'admin')")
   })
 })

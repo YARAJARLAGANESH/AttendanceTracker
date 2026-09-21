@@ -133,16 +133,16 @@ for select using (
   )
 );
 
-create policy "members can manage students in their groups" on public.students
+create policy "owners and admins can manage students in their groups" on public.students
 for all using (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.students.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 ) with check (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.students.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.students.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 );
 
@@ -154,16 +154,16 @@ for select using (
   )
 );
 
-create policy "members can manage subjects in their groups" on public.subjects
+create policy "owners and admins can manage subjects in their groups" on public.subjects
 for all using (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.subjects.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.subjects.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 ) with check (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.subjects.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.subjects.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 );
 
@@ -175,16 +175,16 @@ for select using (
   )
 );
 
-create policy "members can manage timetable in their groups" on public.timetable
+create policy "owners and admins can manage timetable in their groups" on public.timetable
 for all using (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.timetable.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.timetable.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 ) with check (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.timetable.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.timetable.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 );
 
@@ -196,16 +196,16 @@ for select using (
   )
 );
 
-create policy "members can manage academic days in their groups" on public.academic_days
+create policy "owners and admins can manage academic days in their groups" on public.academic_days
 for all using (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.academic_days.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.academic_days.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 ) with check (
   exists (
     select 1 from public.group_members gm
-    where gm.group_id = public.academic_days.group_id and gm.user_id = auth.uid()
+    where gm.group_id = public.academic_days.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 );
 
@@ -219,20 +219,20 @@ for select using (
   )
 );
 
-create policy "members can manage attendance in their groups" on public.attendance
+create policy "owners and admins can manage attendance in their groups" on public.attendance
 for all using (
   exists (
     select 1
     from public.students s
     join public.group_members gm on gm.group_id = s.group_id
-    where s.id = public.attendance.student_id and gm.user_id = auth.uid()
+    where s.id = public.attendance.student_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 ) with check (
   exists (
     select 1
     from public.students s
     join public.group_members gm on gm.group_id = s.group_id
-    where s.id = public.attendance.student_id and gm.user_id = auth.uid()
+    where s.id = public.attendance.student_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
   )
 );
 
