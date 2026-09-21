@@ -10,6 +10,7 @@ const navItems = [
   { to: '/reports', label: 'Reports' },
   { to: '/timetable', label: 'Timetable' },
   { to: '/calendar', label: 'Calendar' },
+  { to: '/audit', label: 'Audit' },
   { to: '/backup', label: 'Backup' },
   { to: '/settings', label: 'Settings' },
 ]

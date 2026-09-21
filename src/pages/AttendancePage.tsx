@@ -56,6 +56,12 @@ export function AttendancePage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [classMode, setClassMode] = useState<Record<string, 'CONDUCTED' | 'NOT_CONDUCTED' | 'UNSET'>>({})
+  const [adjustmentDraft, setAdjustmentDraft] = useState<{
+    record: AttendanceRecord | null
+    newStatus: 'PRESENT' | 'ABSENT' | 'NOT_CONDUCTED'
+    reason: string
+    reviewing: boolean
+  }>({ record: null, newStatus: 'PRESENT', reason: '', reviewing: false })
 
   useEffect(() => {
     const load = async () => {
@@ -257,6 +263,53 @@ export function AttendancePage() {
     }
   }
 
+  const openAdjustment = (record: AttendanceRecord) => {
+    setAdjustmentDraft({
+      record,
+      newStatus: record.status === 'PRESENT' ? 'ABSENT' : 'PRESENT',
+      reason: '',
+      reviewing: false,
+    })
+    setError('')
+    setSuccess('')
+  }
+
+  const confirmAdjustment = async () => {
+    if (!adjustmentDraft.record) {
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError('')
+      setSuccess('')
+
+      const result = await import('../repositories/attendanceAdjustments').then((module) =>
+        module.adjustAttendanceRecord({
+          attendanceId: adjustmentDraft.record!.id,
+          newStatus: adjustmentDraft.newStatus,
+          reason: adjustmentDraft.reason,
+          expectedPreviousStatus: adjustmentDraft.record!.status,
+        }),
+      )
+
+      setAttendanceRecords((current) =>
+        current.map((record) => (record.id === adjustmentDraft.record!.id ? { ...record, status: adjustmentDraft.newStatus, reason: adjustmentDraft.reason, updated_at: new Date().toISOString() } : record)),
+      )
+
+      setAdjustmentDraft({ record: null, newStatus: 'PRESENT', reason: '', reviewing: false })
+      setSuccess('Attendance adjusted successfully.')
+      setTimeout(() => {
+        setSuccess('')
+      }, 2400)
+      return result
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to adjust attendance.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="card-surface p-4 sm:p-6">
@@ -297,6 +350,60 @@ export function AttendancePage() {
         <div className="card-surface p-6">
           <h3 className="text-xl font-semibold text-white">No classes scheduled</h3>
           <p className="mt-2 text-slate-300">There are no timetable entries for this date in the applicable active range.</p>
+        </div>
+      ) : null}
+
+      {adjustmentDraft.record ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            {!adjustmentDraft.reviewing ? (
+              <>
+                <h3 className="text-2xl font-bold text-white">Adjust Attendance</h3>
+                <div className="mt-4 space-y-3 text-sm text-slate-200">
+                  <p><span className="text-slate-400">Student:</span> {students.find((student) => student.id === adjustmentDraft.record?.student_id)?.name ?? 'Student'}</p>
+                  <p><span className="text-slate-400">Date:</span> {adjustmentDraft.record?.date}</p>
+                  <p><span className="text-slate-400">Subject:</span> {subjectMap[adjustmentDraft.record?.subject_id ?? ''] ?? 'Subject'}</p>
+                  <p><span className="text-slate-400">Current status:</span> {adjustmentDraft.record?.status}</p>
+                </div>
+
+                <label className="mt-5 block text-sm text-slate-200">
+                  <span className="mb-1 block">New status</span>
+                  <select value={adjustmentDraft.newStatus} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, newStatus: event.target.value as 'PRESENT' | 'ABSENT' | 'NOT_CONDUCTED' }))} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100">
+                    <option value="PRESENT">PRESENT</option>
+                    <option value="ABSENT">ABSENT</option>
+                    <option value="NOT_CONDUCTED">NOT_CONDUCTED</option>
+                  </select>
+                </label>
+
+                <label className="mt-4 block text-sm text-slate-200">
+                  <span className="mb-1 block">Reason</span>
+                  <textarea value={adjustmentDraft.reason} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, reason: event.target.value }))} rows={3} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100" placeholder="Marked absent by mistake." />
+                </label>
+
+                <div className="mt-5 flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => setAdjustmentDraft({ record: null, newStatus: 'PRESENT', reason: '', reviewing: false })} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100">Cancel</button>
+                  <button type="button" onClick={() => setAdjustmentDraft((current) => ({ ...current, reviewing: true }))} disabled={!adjustmentDraft.reason.trim() || adjustmentDraft.newStatus === adjustmentDraft.record?.status} className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60">Review Adjustment</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-2xl font-bold text-white">Review Attendance Adjustment</h3>
+                <div className="mt-4 space-y-3 text-sm text-slate-200">
+                  <p><span className="text-slate-400">Student:</span> {students.find((student) => student.id === adjustmentDraft.record?.student_id)?.name ?? 'Student'}</p>
+                  <p><span className="text-slate-400">Date:</span> {adjustmentDraft.record?.date}</p>
+                  <p><span className="text-slate-400">Subject:</span> {subjectMap[adjustmentDraft.record?.subject_id ?? ''] ?? 'Subject'}</p>
+                  <p><span className="text-slate-400">Change:</span> {adjustmentDraft.record?.status} → {adjustmentDraft.newStatus}</p>
+                  <p><span className="text-slate-400">Reason:</span> {adjustmentDraft.reason}</p>
+                  <p><span className="text-slate-400">This change will update attendance calculations and reports.</span></p>
+                </div>
+
+                <div className="mt-5 flex items-center justify-end gap-2">
+                  <button type="button" onClick={() => setAdjustmentDraft((current) => ({ ...current, reviewing: false }))} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100">Back</button>
+                  <button type="button" onClick={() => void confirmAdjustment()} disabled={saving} className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60">Confirm Adjustment</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       ) : null}
 
@@ -354,6 +461,23 @@ export function AttendancePage() {
                             </button>
                             <button type="button" onClick={() => void setStudentAttendance(entry, student.id, 'ABSENT')} className={`rounded-xl px-3 py-2 text-sm font-semibold ${currentStatus === 'ABSENT' ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-100'}`}>
                               Absent
+                            </button>
+                            <button type="button" onClick={() => openAdjustment(record ?? {
+                              id: `${student.id}-${selectedDate}-${entry.subject_id}-${entry.start_time}-${entry.end_time}`,
+                              student_id: student.id,
+                              date: selectedDate,
+                              subject_id: entry.subject_id,
+                              class_group_id: entry.class_group_id ?? null,
+                              start_time: entry.start_time,
+                              end_time: entry.end_time,
+                              duration_minutes: getDurationMinutes(entry.start_time, entry.end_time),
+                              status: currentStatus,
+                              created_at: new Date().toISOString(),
+                              updated_at: new Date().toISOString(),
+                              updated_by: null,
+                              reason: null,
+                            })} className="rounded-xl border border-sky-500/60 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200">
+                              Adjust
                             </button>
                           </div>
                         </div>

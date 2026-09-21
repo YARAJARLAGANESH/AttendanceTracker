@@ -14,6 +14,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AcademicConfigPage } from './pages/AcademicConfigPage'
 import { SetupPage } from './pages/SetupPage'
 import { BackupPage } from './pages/BackupPage'
+import { AuditPage } from './pages/AuditPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ function App() {
           <Route path="academic-config" element={<AcademicConfigPage />} />
           <Route path="timetable" element={<TimetablePage />} />
           <Route path="calendar" element={<CalendarPage />} />
+          <Route path="audit" element={<AuditPage />} />
           <Route path="backup" element={<BackupPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

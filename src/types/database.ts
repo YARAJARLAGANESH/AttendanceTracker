@@ -81,3 +81,17 @@ export type AttendanceRecord = {
   updated_by: string | null
   reason: string | null
 }
+
+export type AttendanceAdjustment = {
+  id: string
+  attendance_id: string
+  group_id: string
+  student_id: string
+  subject_id: string
+  attendance_date: string
+  previous_status: AttendanceStatus
+  new_status: AttendanceStatus
+  reason: string
+  adjusted_by: string | null
+  adjusted_at: string
+}
