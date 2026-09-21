@@ -1,0 +1,3 @@
+export function SubjectsPage() {
+  return <div className="card-surface p-6"><h2 className="text-2xl font-bold text-white">Subjects</h2><p className="mt-3 text-slate-300">Subject catalog and attendance summaries.</p></div>
+}
