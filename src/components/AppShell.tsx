@@ -1,11 +1,13 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navItems = [
+  { to: '/setup', label: 'Setup' },
+  { to: '/students', label: 'Students' },
+  { to: '/subjects', label: 'Subjects' },
+  { to: '/academic-config', label: 'Academic Config' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/attendance', label: 'Attendance' },
   { to: '/reports', label: 'Reports' },
-  { to: '/students', label: 'Students' },
-  { to: '/subjects', label: 'Subjects' },
   { to: '/timetable', label: 'Timetable' },
   { to: '/calendar', label: 'Calendar' },
   { to: '/settings', label: 'Settings' },
