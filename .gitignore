@@ -1,5 +1,4 @@
 # Logs
-
 logs
 *.log
 npm-debug.log*
@@ -9,26 +8,21 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Dependencies
-
 node_modules
 
 # Build
-
 dist
 dist-ssr
 
 # Local environment files
-
 *.local
 .env
 .env.local
 
 # Supabase CLI temporary files
-
 supabase/.temp/
 
 # Editor directories and files
-
 .vscode/*
 !.vscode/extensions.json
 .idea

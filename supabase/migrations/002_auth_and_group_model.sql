@@ -24,84 +24,144 @@ create table if not exists public.group_members (
   unique(group_id, user_id)
 );
 
-create index if not exists idx_groups_created_by on public.groups(created_by);
-create index if not exists idx_group_members_group_id on public.group_members(group_id);
-create index if not exists idx_group_members_user_id on public.group_members(user_id);
+create index if not exists idx_groups_created_by
+  on public.groups(created_by);
+
+create index if not exists idx_group_members_group_id
+  on public.group_members(group_id);
+
+create index if not exists idx_group_members_user_id
+  on public.group_members(user_id);
 
 alter table public.profiles enable row level security;
 alter table public.groups enable row level security;
 alter table public.group_members enable row level security;
 
 
-create policy "profiles can insert own profile" on public.profiles
-for insert with check (auth.uid() = id);
+-- Helper function: check whether current user belongs to a group
+create or replace function public.is_group_member(target_group_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.group_members gm
+    where gm.group_id = target_group_id
+      and gm.user_id = auth.uid()
+  );
+$$;
 
-create policy "profiles can update own profile" on public.profiles
-for update using (auth.uid() = id);
 
-create policy "users can view groups they belong to" on public.groups
-for select using (
-  exists (
-    select 1 from public.group_members gm
-    where gm.group_id = public.groups.id and gm.user_id = auth.uid()
-  )
+-- Helper function: check whether current user is owner/admin
+create or replace function public.is_group_admin(target_group_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.group_members gm
+    where gm.group_id = target_group_id
+      and gm.user_id = auth.uid()
+      and gm.role in ('owner', 'admin')
+  );
+$$;
+
+
+-- Profiles
+create policy "profiles can insert own profile"
+on public.profiles
+for insert
+with check (auth.uid() = id);
+
+create policy "profiles can update own profile"
+on public.profiles
+for update
+using (auth.uid() = id);
+
+
+-- Groups
+create policy "users can view groups they belong to"
+on public.groups
+for select
+using (
+  public.is_group_member(id)
 );
 
-create policy "owners and admins can insert groups" on public.groups
-for insert with check (
+create policy "users can create their own groups"
+on public.groups
+for insert
+with check (
   auth.uid() = created_by
-  or exists (
-    select 1 from public.group_members gm
-    where gm.group_id = public.groups.id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
-  )
 );
 
-create policy "owners and admins can update groups" on public.groups
-for update using (
-  exists (
-    select 1 from public.group_members gm
-    where gm.group_id = public.groups.id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
-  )
+create policy "owners and admins can update groups"
+on public.groups
+for update
+using (
+  public.is_group_admin(id)
+)
+with check (
+  public.is_group_admin(id)
 );
 
-create policy "owners and admins can delete groups" on public.groups
-for delete using (
-  exists (
-    select 1 from public.group_members gm
-    where gm.group_id = public.groups.id and gm.user_id = auth.uid() and gm.role = 'owner'
-  )
+create policy "owners and admins can delete groups"
+on public.groups
+for delete
+using (
+  public.is_group_admin(id)
 );
 
-create policy "users can view their own memberships" on public.group_members
-for select using (user_id = auth.uid());
 
-create policy "owners and admins can manage memberships" on public.group_members
-for all using (
-  exists (
-    select 1 from public.group_members gm
-    where gm.group_id = public.group_members.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
-  )
-) with check (
-  exists (
-    select 1 from public.group_members gm
-    where gm.group_id = public.group_members.group_id and gm.user_id = auth.uid() and gm.role in ('owner', 'admin')
-  )
+-- Group memberships
+create policy "users can view their own memberships"
+on public.group_members
+for select
+using (
+  user_id = auth.uid()
 );
 
+create policy "owners and admins can manage memberships"
+on public.group_members
+for all
+using (
+  public.is_group_admin(group_id)
+)
+with check (
+  public.is_group_admin(group_id)
+);
+
+
+-- Automatically create profile after signup
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer
+set search_path = public
 as $$
 begin
   insert into public.profiles (id, email, display_name)
-  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)))
+  values (
+    new.id,
+    new.email,
+    coalesce(
+      new.raw_user_meta_data->>'display_name',
+      split_part(new.email, '@', 1)
+    )
+  )
   on conflict (id) do nothing;
+
   return new;
 end;
 $$;
 
+
 drop trigger if exists on_auth_user_created on auth.users;
+
 create trigger on_auth_user_created
 after insert on auth.users
-for each row execute procedure public.handle_new_user();
+for each row
+execute procedure public.handle_new_user();
