@@ -4,7 +4,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables are missing. Authentication and data features will be unavailable until configured.')
+  console.warn(
+    'Supabase environment variables are missing. Authentication and data features will be unavailable until configured.',
+  )
 }
 
 export const supabase = createClient(
