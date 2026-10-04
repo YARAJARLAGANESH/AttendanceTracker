@@ -1,6 +1,16 @@
 export type UserRole = 'owner' | 'admin' | 'member'
-export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'NOT_CONDUCTED'
-export type AcademicDayType = 'NORMAL' | 'HOLIDAY' | 'SPECIAL_CLASS' | 'EXAM' | 'COLLEGE_EVENT'
+
+export type AttendanceStatus =
+  | 'PRESENT'
+  | 'ABSENT'
+  | 'NOT_CONDUCTED'
+
+export type AcademicDayType =
+  | 'NORMAL'
+  | 'HOLIDAY'
+  | 'SPECIAL_CLASS'
+  | 'EXAM'
+  | 'COLLEGE_EVENT'
 
 export type Profile = {
   id: string
@@ -17,6 +27,12 @@ export type Group = {
   academic_year: string
   created_by: string
   created_at: string
+
+  // Academic configuration
+  academic_start_date: string | null
+  working_days: string[]
+  lunch_start: string | null
+  lunch_end: string | null
 }
 
 export type GroupMember = {

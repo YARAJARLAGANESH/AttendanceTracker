@@ -25,7 +25,9 @@ export function validateManualAttendanceAdjustment(
   }
 
   if (normalizedReason.length > 500) {
-    errors.push('The adjustment reason is too long. It must be 500 characters or fewer.')
+    errors.push(
+      'The adjustment reason is too long. It must be 500 characters or fewer.',
+    )
   }
 
   if (!currentStatus || !nextStatus) {
@@ -86,18 +88,27 @@ export async function adjustAttendanceRecord(input: {
     throw new Error(error.message)
   }
 
-  return data as { id: string; status: AttendanceStatus }
+  return data as {
+    id: string
+    status: AttendanceStatus
+  }
 }
 
-export async function listAttendanceAdjustmentsForGroup(groupId: string, filters?: {
-  studentId?: string
-  subjectId?: string
-  adjustedBy?: string
-  startDate?: string
-  endDate?: string
-  status?: AttendanceStatus
-}) {
-  let query = supabase.from('attendance_adjustments').select('*').eq('group_id', groupId)
+export async function listAttendanceAdjustmentsForGroup(
+  groupId: string,
+  filters?: {
+    studentId?: string
+    subjectId?: string
+    adjustedBy?: string
+    startDate?: string
+    endDate?: string
+    status?: AttendanceStatus
+  },
+) {
+  let query = supabase
+    .from('attendance_adjustments')
+    .select('*')
+    .eq('group_id', groupId)
 
   if (filters?.studentId) {
     query = query.eq('student_id', filters.studentId)
@@ -112,18 +123,29 @@ export async function listAttendanceAdjustmentsForGroup(groupId: string, filters
   }
 
   if (filters?.startDate) {
-    query = query.gte('adjusted_at', `${filters.startDate}T00:00:00.000Z`)
+    query = query.gte(
+      'adjusted_at',
+      `${filters.startDate}T00:00:00.000Z`,
+    )
   }
 
   if (filters?.endDate) {
-    query = query.lte('adjusted_at', `${filters.endDate}T23:59:59.999Z`)
+    query = query.lte(
+      'adjusted_at',
+      `${filters.endDate}T23:59:59.999Z`,
+    )
   }
 
   if (filters?.status) {
-    query = query.or(`new_status.eq.${filters.status},previous_status.eq.${filters.status}`)
+    query = query.or(
+      `new_status.eq.${filters.status},previous_status.eq.${filters.status}`,
+    )
   }
 
-  const { data, error } = await query.order('adjusted_at', { ascending: false })
+  const { data, error } = await query.order('adjusted_at', {
+    ascending: false,
+  })
+
   if (error) throw error
 
   const rows = (data ?? []) as AttendanceAdjustment[]
@@ -132,19 +154,46 @@ export async function listAttendanceAdjustmentsForGroup(groupId: string, filters
     return [] as AttendanceAdjustmentListItem[]
   }
 
-  const studentIds = [...new Set(rows.map((row) => row.student_id))]
-  const subjectIds = [...new Set(rows.map((row) => row.subject_id))]
+  const studentIds = [
+    ...new Set(rows.map((row) => row.student_id)),
+  ]
+
+  const subjectIds = [
+    ...new Set(rows.map((row) => row.subject_id)),
+  ]
 
   const [studentRows, subjectRows] = await Promise.all([
-    studentIds.length > 0 ? supabase.from('students').select('id, name').in('id', studentIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null }),
-    subjectIds.length > 0 ? supabase.from('subjects').select('id, name').in('id', subjectIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null }),
+    studentIds.length > 0
+      ? supabase
+          .from('students')
+          .select('id, name')
+          .in('id', studentIds)
+      : Promise.resolve({
+          data: [] as Array<{ id: string; name: string }>,
+          error: null,
+        }),
+
+    subjectIds.length > 0
+      ? supabase
+          .from('subjects')
+          .select('id, name')
+          .in('id', subjectIds)
+      : Promise.resolve({
+          data: [] as Array<{ id: string; name: string }>,
+          error: null,
+        }),
   ])
 
   if (studentRows.error) throw studentRows.error
   if (subjectRows.error) throw subjectRows.error
 
-  const studentMap = new Map((studentRows.data ?? []).map((row) => [row.id, row.name]))
-  const subjectMap = new Map((subjectRows.data ?? []).map((row) => [row.id, row.name]))
+  const studentMap = new Map(
+    (studentRows.data ?? []).map((row) => [row.id, row.name]),
+  )
+
+  const subjectMap = new Map(
+    (subjectRows.data ?? []).map((row) => [row.id, row.name]),
+  )
 
   return rows.map((row) => ({
     ...row,
@@ -154,20 +203,62 @@ export async function listAttendanceAdjustmentsForGroup(groupId: string, filters
   }))
 }
 
-export async function getAttendanceAdjustmentDetail(attendanceAdjustmentId: string) {
-  const { data, error } = await supabase.from('attendance_adjustments').select('*').eq('id', attendanceAdjustmentId).maybeSingle()
+export async function getAttendanceAdjustmentDetail(
+  attendanceAdjustmentId: string,
+) {
+  const { data, error } = await supabase
+    .from('attendance_adjustments')
+    .select('*')
+    .eq('id', attendanceAdjustmentId)
+    .maybeSingle()
+
   if (error) throw error
+
   if (!data) {
     return null
   }
 
-  const attendanceRef = await supabase.from('attendance').select('id, date, student_id, subject_id').eq('id', data.attendance_id).maybeSingle()
+  const attendanceRef = await supabase
+    .from('attendance')
+    .select('id, date, student_id, subject_id')
+    .eq('id', data.attendance_id)
+    .maybeSingle()
+
   if (attendanceRef.error) throw attendanceRef.error
 
   const [studentRow, subjectRow, profileRow] = await Promise.all([
-    attendanceRef.data ? supabase.from('students').select('id, name').eq('id', attendanceRef.data.student_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    attendanceRef.data ? supabase.from('subjects').select('id, name').eq('id', attendanceRef.data.subject_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    data.adjusted_by ? supabase.from('profiles').select('id, display_name, email').eq('id', data.adjusted_by).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    attendanceRef.data
+      ? supabase
+          .from('students')
+          .select('id, name')
+          .eq('id', attendanceRef.data.student_id)
+          .maybeSingle()
+      : Promise.resolve({
+          data: null,
+          error: null,
+        }),
+
+    attendanceRef.data
+      ? supabase
+          .from('subjects')
+          .select('id, name')
+          .eq('id', attendanceRef.data.subject_id)
+          .maybeSingle()
+      : Promise.resolve({
+          data: null,
+          error: null,
+        }),
+
+    data.adjusted_by
+      ? supabase
+          .from('profiles')
+          .select('id, display_name, email')
+          .eq('id', data.adjusted_by)
+          .maybeSingle()
+      : Promise.resolve({
+          data: null,
+          error: null,
+        }),
   ])
 
   if (studentRow.error) throw studentRow.error
@@ -179,6 +270,152 @@ export async function getAttendanceAdjustmentDetail(attendanceAdjustmentId: stri
     attendance_date: attendanceRef.data?.date ?? null,
     student_name: studentRow.data?.name ?? null,
     subject_name: subjectRow.data?.name ?? null,
-    adjusted_by_name: profileRow.data?.display_name ?? profileRow.data?.email ?? null,
+    adjusted_by_name:
+      profileRow.data?.display_name ??
+      profileRow.data?.email ??
+      null,
   }
+}
+
+/* =========================================================
+   ATTENDANCE AUDIT HISTORY
+   ========================================================= */
+
+export type AttendanceAuditListItem = {
+  id: string
+  date: string
+  student_id: string
+  student_name: string | null
+  subject_id: string
+  subject_name: string | null
+  start_time: string
+  end_time: string
+  duration_minutes: number
+  status: AttendanceStatus
+  updated_by: string | null
+  reason: string | null
+}
+
+export async function listAttendanceHistoryForGroup(
+  groupId: string,
+  filters?: {
+    studentId?: string
+    subjectId?: string
+    startDate?: string
+    endDate?: string
+    status?: AttendanceStatus
+  },
+): Promise<AttendanceAuditListItem[]> {
+  const { data: students, error: studentsError } = await supabase
+    .from('students')
+    .select('id, name')
+    .eq('group_id', groupId)
+
+  if (studentsError) {
+    throw studentsError
+  }
+
+  const studentRows = students ?? []
+
+  if (studentRows.length === 0) {
+    return []
+  }
+
+  const studentIds = studentRows.map((student) => student.id)
+
+  let query = supabase
+    .from('attendance')
+    .select('*')
+    .in('student_id', studentIds)
+
+  if (filters?.studentId) {
+    query = query.eq('student_id', filters.studentId)
+  }
+
+  if (filters?.subjectId) {
+    query = query.eq('subject_id', filters.subjectId)
+  }
+
+  if (filters?.startDate) {
+    query = query.gte('date', filters.startDate)
+  }
+
+  if (filters?.endDate) {
+    query = query.lte('date', filters.endDate)
+  }
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  const { data: attendanceRows, error: attendanceError } =
+    await query
+      .order('date', { ascending: false })
+      .order('start_time', { ascending: false })
+
+  if (attendanceError) {
+    throw attendanceError
+  }
+
+  const rows = attendanceRows ?? []
+
+  if (rows.length === 0) {
+    return []
+  }
+
+  const subjectIds = [
+    ...new Set(
+      rows
+        .map((row) => row.subject_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ]
+
+  const { data: subjectRows, error: subjectError } =
+    subjectIds.length > 0
+      ? await supabase
+          .from('subjects')
+          .select('id, name')
+          .in('id', subjectIds)
+      : {
+          data: [],
+          error: null,
+        }
+
+  if (subjectError) {
+    throw subjectError
+  }
+
+  const studentMap = new Map(
+    studentRows.map((student) => [
+      student.id,
+      student.name,
+    ]),
+  )
+
+  const subjectMap = new Map(
+    (subjectRows ?? []).map((subject) => [
+      subject.id,
+      subject.name,
+    ]),
+  )
+
+  return rows.map((row) => ({
+    id: row.id,
+    date: row.date,
+    student_id: row.student_id,
+    student_name:
+      studentMap.get(row.student_id) ?? null,
+    subject_id: row.subject_id,
+    subject_name:
+      subjectMap.get(row.subject_id) ?? null,
+    start_time: row.start_time,
+    end_time: row.end_time,
+    duration_minutes: Number(
+      row.duration_minutes ?? 0,
+    ),
+    status: row.status as AttendanceStatus,
+    updated_by: row.updated_by ?? null,
+    reason: row.reason ?? null,
+  }))
 }

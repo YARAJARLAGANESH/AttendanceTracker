@@ -5,6 +5,7 @@ const DEFAULT_COLLEGE = 'ACHARYA NAGARJUNA UNIVERSITY'
 const DEFAULT_CLASS = 'AIML-3/1'
 const DEFAULT_YEAR = '2026-27'
 const DEFAULT_START = '2026-09-16'
+
 const DEFAULT_WORKING_DAYS = [
   'Monday',
   'Tuesday',
@@ -13,6 +14,7 @@ const DEFAULT_WORKING_DAYS = [
   'Friday',
   'Saturday',
 ]
+
 const DEFAULT_LUNCH_START = '12:30'
 const DEFAULT_LUNCH_END = '13:30'
 
@@ -31,13 +33,16 @@ export function AcademicConfigPage() {
   const [className, setClassName] = useState(DEFAULT_CLASS)
   const [academicYear, setAcademicYear] = useState(DEFAULT_YEAR)
   const [startDate, setStartDate] = useState(DEFAULT_START)
-  const [workingDays, setWorkingDays] = useState<string[]>(DEFAULT_WORKING_DAYS)
+  const [workingDays, setWorkingDays] = useState<string[]>(
+    DEFAULT_WORKING_DAYS,
+  )
   const [lunchStart, setLunchStart] = useState(DEFAULT_LUNCH_START)
   const [lunchEnd, setLunchEnd] = useState(DEFAULT_LUNCH_END)
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [hasSavedConfiguration, setHasSavedConfiguration] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -69,7 +74,8 @@ export function AcademicConfigPage() {
         )
 
         setWorkingDays(
-          Array.isArray(group.working_days) && group.working_days.length > 0
+          Array.isArray(group.working_days) &&
+            group.working_days.length > 0
             ? group.working_days
             : DEFAULT_WORKING_DAYS,
         )
@@ -85,7 +91,11 @@ export function AcademicConfigPage() {
             ? String(group.lunch_end).slice(0, 5)
             : DEFAULT_LUNCH_END,
         )
+
+        setHasSavedConfiguration(true)
       } catch (err) {
+        setHasSavedConfiguration(false)
+
         setError(
           err instanceof Error
             ? err.message
@@ -103,6 +113,8 @@ export function AcademicConfigPage() {
         ? current.filter((item) => item !== day)
         : [...current, day],
     )
+
+    setHasSavedConfiguration(false)
   }
 
   const handleSave = async () => {
@@ -111,6 +123,18 @@ export function AcademicConfigPage() {
     setSuccess('')
 
     try {
+      if (!collegeName.trim()) {
+        throw new Error('Please enter the college name.')
+      }
+
+      if (!className.trim()) {
+        throw new Error('Please enter the class name.')
+      }
+
+      if (!academicYear.trim()) {
+        throw new Error('Please enter the academic year.')
+      }
+
       if (!startDate) {
         throw new Error('Please select an academic start date.')
       }
@@ -120,11 +144,15 @@ export function AcademicConfigPage() {
       }
 
       if (!lunchStart || !lunchEnd) {
-        throw new Error('Please select both lunch start and lunch end times.')
+        throw new Error(
+          'Please select both lunch start and lunch end times.',
+        )
       }
 
       if (lunchStart >= lunchEnd) {
-        throw new Error('Lunch end time must be later than lunch start time.')
+        throw new Error(
+          'Lunch end time must be later than lunch start time.',
+        )
       }
 
       const { data: groups, error: groupError } = await supabase
@@ -140,23 +168,71 @@ export function AcademicConfigPage() {
         throw new Error('No group is available to configure.')
       }
 
-      const { error: updateError } = await supabase
-        .from('groups')
-        .update({
-          college_name: collegeName,
-          class_name: className,
-          academic_year: academicYear,
-          academic_start_date: startDate,
-          working_days: workingDays,
-          lunch_start: lunchStart,
-          lunch_end: lunchEnd,
-        })
-        .eq('id', group.id)
+      const { data: updatedGroup, error: updateError } =
+        await supabase
+          .from('groups')
+          .update({
+            college_name: collegeName.trim(),
+            class_name: className.trim(),
+            academic_year: academicYear.trim(),
+            academic_start_date: startDate,
+            working_days: workingDays,
+            lunch_start: lunchStart,
+            lunch_end: lunchEnd,
+          })
+          .eq('id', group.id)
+          .select(
+            'college_name, class_name, academic_year, academic_start_date, working_days, lunch_start, lunch_end',
+          )
+          .single()
 
       if (updateError) throw updateError
 
-      setSuccess('Academic configuration saved successfully.')
+      // Load the values returned by Supabase so the
+      // displayed configuration represents the actual saved data.
+      setCollegeName(
+        updatedGroup.college_name || DEFAULT_COLLEGE,
+      )
+
+      setClassName(
+        updatedGroup.class_name || DEFAULT_CLASS,
+      )
+
+      setAcademicYear(
+        updatedGroup.academic_year || DEFAULT_YEAR,
+      )
+
+      setStartDate(
+        updatedGroup.academic_start_date || DEFAULT_START,
+      )
+
+      setWorkingDays(
+        Array.isArray(updatedGroup.working_days) &&
+          updatedGroup.working_days.length > 0
+          ? updatedGroup.working_days
+          : DEFAULT_WORKING_DAYS,
+      )
+
+      setLunchStart(
+        updatedGroup.lunch_start
+          ? String(updatedGroup.lunch_start).slice(0, 5)
+          : DEFAULT_LUNCH_START,
+      )
+
+      setLunchEnd(
+        updatedGroup.lunch_end
+          ? String(updatedGroup.lunch_end).slice(0, 5)
+          : DEFAULT_LUNCH_END,
+      )
+
+      setHasSavedConfiguration(true)
+
+      setSuccess(
+        'Academic configuration saved successfully.',
+      )
     } catch (err) {
+      setHasSavedConfiguration(false)
+
       setError(
         err instanceof Error
           ? err.message
@@ -182,7 +258,10 @@ export function AcademicConfigPage() {
           College
           <input
             value={collegeName}
-            onChange={(event) => setCollegeName(event.target.value)}
+            onChange={(event) => {
+              setCollegeName(event.target.value)
+              setHasSavedConfiguration(false)
+            }}
             className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white focus:border-sky-500"
           />
         </label>
@@ -191,7 +270,10 @@ export function AcademicConfigPage() {
           Class
           <input
             value={className}
-            onChange={(event) => setClassName(event.target.value)}
+            onChange={(event) => {
+              setClassName(event.target.value)
+              setHasSavedConfiguration(false)
+            }}
             className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white focus:border-sky-500"
           />
         </label>
@@ -200,7 +282,10 @@ export function AcademicConfigPage() {
           Academic year
           <input
             value={academicYear}
-            onChange={(event) => setAcademicYear(event.target.value)}
+            onChange={(event) => {
+              setAcademicYear(event.target.value)
+              setHasSavedConfiguration(false)
+            }}
             className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white focus:border-sky-500"
           />
         </label>
@@ -210,13 +295,18 @@ export function AcademicConfigPage() {
           <input
             type="date"
             value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
+            onChange={(event) => {
+              setStartDate(event.target.value)
+              setHasSavedConfiguration(false)
+            }}
             className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white focus:border-sky-500"
           />
         </label>
 
         <div>
-          <p className="text-sm text-slate-300">Working days</p>
+          <p className="text-sm text-slate-300">
+            Working days
+          </p>
 
           <div className="mt-2 flex flex-wrap gap-2">
             {DAYS.map((day) => (
@@ -242,7 +332,10 @@ export function AcademicConfigPage() {
             <input
               type="time"
               value={lunchStart}
-              onChange={(event) => setLunchStart(event.target.value)}
+              onChange={(event) => {
+                setLunchStart(event.target.value)
+                setHasSavedConfiguration(false)
+              }}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white focus:border-sky-500"
             />
           </label>
@@ -252,7 +345,10 @@ export function AcademicConfigPage() {
             <input
               type="time"
               value={lunchEnd}
-              onChange={(event) => setLunchEnd(event.target.value)}
+              onChange={(event) => {
+                setLunchEnd(event.target.value)
+                setHasSavedConfiguration(false)
+              }}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white focus:border-sky-500"
             />
           </label>
@@ -278,6 +374,82 @@ export function AcademicConfigPage() {
         >
           {saving ? 'Saving...' : 'Save configuration'}
         </button>
+
+        {hasSavedConfiguration ? (
+          <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/70 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">
+                  Saved configuration
+                </p>
+
+                <h3 className="mt-1 text-xl font-semibold text-white">
+                  Current saved settings
+                </h3>
+              </div>
+
+              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                Saved
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="flex flex-col gap-1 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-400">
+                  College
+                </span>
+                <span className="text-sm font-medium text-white sm:text-right">
+                  {collegeName}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-400">
+                  Class
+                </span>
+                <span className="text-sm font-medium text-white sm:text-right">
+                  {className}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-400">
+                  Academic year
+                </span>
+                <span className="text-sm font-medium text-white sm:text-right">
+                  {academicYear}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-400">
+                  Academic start date
+                </span>
+                <span className="text-sm font-medium text-white sm:text-right">
+                  {startDate}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-400">
+                  Working days
+                </span>
+                <span className="text-sm font-medium text-white sm:text-right">
+                  {workingDays.join(', ')}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-400">
+                  Lunch
+                </span>
+                <span className="text-sm font-medium text-white sm:text-right">
+                  {lunchStart} – {lunchEnd}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
